@@ -10,6 +10,8 @@ interface CategoryFilterProps {
   isLoading?: boolean;
 }
 
+const SKELETON_WIDTHS = [80, 110, 65, 95, 70, 90, 105, 75];
+
 export default function CategoryFilter({
   categories,
   selectedCategory,
@@ -25,7 +27,7 @@ export default function CategoryFilter({
           <div
             key={i}
             className="h-9 rounded-full bg-slate-800/50 animate-pulse shrink-0"
-            style={{ width: `${60 + Math.random() * 40}px` }}
+            style={{ width: `${SKELETON_WIDTHS[i % SKELETON_WIDTHS.length]}px` }}
           />
         ))}
       </div>

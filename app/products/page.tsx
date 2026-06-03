@@ -1,66 +1,88 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
+import { useProducts, useSearchProducts, useCategories } from "@/hooks/useProducts";
+import { useDebounce } from "@/hooks/useDebounce";
 import ProductCard from "@/components/products/ProductCard";
 import ProductSkeleton from "@/components/products/ProductSkeleton";
 import SearchBar from "@/components/products/SearchBar";
 import CategoryFilter from "@/components/products/CategoryFilter";
-import { MOCK_PRODUCTS, MOCK_CATEGORIES } from "./mockData";
 import type { Product } from "@/types";
 
-const INITIAL_PRODUCTS_PER_PAGE = 4;
-const LOAD_MORE_INCREMENT = 4;
+const PRODUCTS_PER_PAGE = 12;
 
 export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [visibleCount, setVisibleCount] = useState(INITIAL_PRODUCTS_PER_PAGE);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [loadedProducts, setLoadedProducts] = useState<Product[]>([]);
+  const [skip, setSkip] = useState(0);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Simulate initial load for polished UX
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsInitialLoading(false);
-    }, 600);
-    return () => clearTimeout(timer);
-  }, []);
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Filter products based on search and category
-  const filteredProducts = useMemo(() => {
-    return MOCK_PRODUCTS.filter((product) => {
-      const matchesSearch = product.title
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) || 
-        product.description
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-      
-      const matchesCategory = selectedCategory === "" || product.category === selectedCategory;
-      
-      return matchesSearch && matchesCategory;
-    });
-  }, [searchQuery, selectedCategory]);
+  const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
 
-  // Paginated visible products
+  const {
+    data: productsData,
+    isLoading: productsLoading,
+    isError: productsError,
+    refetch: refetchProducts,
+  } = useProducts(skip, PRODUCTS_PER_PAGE, selectedCategory || undefined);
+
+  const {
+    data: searchData,
+    isLoading: searchLoading,
+  } = useSearchProducts(debouncedSearch);
+
+  const isSearching = debouncedSearch.trim().length > 0;
+
+  // Accumulate products when new data arrives or category changes.
+  // selectedCategory is in deps so the effect re-runs even when
+  // TanStack Query returns a cached (same-reference) result.
+  React.useEffect(() => {
+    if (productsData?.products && !isSearching) {
+      // Defer state updates to a microtask to avoid synchronous setState calls within the effect body
+      Promise.resolve().then(() => {
+        if (skip === 0) {
+          setLoadedProducts(productsData.products);
+        } else {
+          setLoadedProducts((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newProducts = productsData.products.filter((p) => !existingIds.has(p.id));
+            return [...prev, ...newProducts];
+          });
+        }
+        setHasInitialized(true);
+      });
+    }
+  }, [productsData, skip, isSearching, selectedCategory]);
+
   const displayProducts = useMemo(() => {
-    return filteredProducts.slice(0, visibleCount);
-  }, [filteredProducts, visibleCount]);
+    if (isSearching) {
+      return searchData?.products || [];
+    }
+    return loadedProducts;
+  }, [isSearching, searchData, loadedProducts]);
 
-  const canLoadMore = visibleCount < filteredProducts.length;
+  const totalProducts = isSearching
+    ? searchData?.total || 0
+    : productsData?.total || 0;
+
+  const canLoadMore = !isSearching && loadedProducts.length < totalProducts;
+
+  const isInitialLoading = (!hasInitialized && productsLoading) || (isSearching && searchLoading);
+  const isLoadingMore = hasInitialized && productsLoading && skip > 0;
 
   const handleLoadMore = () => {
-    setIsLoadingMore(true);
-    // Simulate loading delay for skeleton spinner
-    setTimeout(() => {
-      setVisibleCount((prev) => prev + LOAD_MORE_INCREMENT);
-      setIsLoadingMore(false);
-    }, 800);
+    const newSkip = skip + PRODUCTS_PER_PAGE;
+    setSkip(newSkip);
   };
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
-    setVisibleCount(INITIAL_PRODUCTS_PER_PAGE);
+    setSkip(0);
+    setLoadedProducts([]);
+    setHasInitialized(false);
     setSearchQuery("");
   };
 
@@ -69,7 +91,6 @@ export default function ProductsPage() {
     if (query.trim()) {
       setSelectedCategory("");
     }
-    setVisibleCount(INITIAL_PRODUCTS_PER_PAGE);
   };
 
   return (
@@ -80,9 +101,9 @@ export default function ProductsPage() {
           Products Catalog
         </h1>
         <p className="text-slate-400">
-          {searchQuery
-            ? `Found ${filteredProducts.length} result${filteredProducts.length !== 1 ? "s" : ""} for "${searchQuery}"`
-            : `Explore our collection of ${MOCK_PRODUCTS.length}+ products`}
+          {isSearching
+            ? `Found ${totalProducts} result${totalProducts !== 1 ? "s" : ""} for "${debouncedSearch}"`
+            : `Explore our collection of ${totalProducts}+ products`}
         </p>
       </div>
 
@@ -95,26 +116,49 @@ export default function ProductsPage() {
         />
 
         <CategoryFilter
-          categories={MOCK_CATEGORIES}
+          categories={categoriesData || []}
           selectedCategory={selectedCategory}
           onSelect={handleCategoryChange}
-          isLoading={false}
+          isLoading={categoriesLoading}
         />
       </div>
 
+      {/* Error State */}
+      {productsError && !isSearching && (
+        <div className="text-center py-16">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
+            <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2">
+            Something went wrong
+          </h3>
+          <p className="text-slate-400 mb-4 text-sm">
+            Failed to load products. Please try again.
+          </p>
+          <button
+            onClick={() => refetchProducts()}
+            className="px-6 py-2.5 rounded-lg bg-linear-to-r from-purple-600 to-pink-600 text-white font-medium hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-500/25 cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Loading State */}
-      {isInitialLoading ? (
-        <ProductSkeleton count={INITIAL_PRODUCTS_PER_PAGE} />
-      ) : (
+      {isInitialLoading && <ProductSkeleton count={PRODUCTS_PER_PAGE} />}
+
+      {/* Product Grid */}
+      {!isInitialLoading && !productsError && (
         <>
-          {/* Product Grid */}
           {displayProducts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {displayProducts.map((product, index) => (
                 <div
                   key={product.id}
                   className="animate-fade-in-up"
-                  style={{ animationDelay: `${(index % INITIAL_PRODUCTS_PER_PAGE) * 0.05}s`, animationFillMode: "forwards" }}
+                  style={{ animationDelay: `${(index % PRODUCTS_PER_PAGE) * 0.05}s`, animationFillMode: "forwards" }}
                 >
                   <ProductCard product={product} />
                 </div>
@@ -132,7 +176,7 @@ export default function ProductsPage() {
                 No products found
               </h3>
               <p className="text-slate-400 text-sm">
-                {searchQuery
+                {isSearching
                   ? "Try adjusting your search term"
                   : "No products available in this category"}
               </p>
@@ -168,9 +212,9 @@ export default function ProductsPage() {
           )}
 
           {/* Product Count */}
-          {filteredProducts.length > 0 && (
+          {!isSearching && loadedProducts.length > 0 && (
             <p className="text-center text-sm text-slate-500 mt-6">
-              Showing {displayProducts.length} of {filteredProducts.length} products
+              Showing {loadedProducts.length} of {totalProducts} products
             </p>
           )}
         </>

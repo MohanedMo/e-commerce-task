@@ -1,8 +1,18 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import ImageGallery from "@/components/products/ImageGallery";
-import { MOCK_PRODUCTS } from "../mockData";
+import api from "@/lib/api";
+import type { Product } from "@/types";
 import type { Metadata } from "next";
+
+async function getProduct(id: string): Promise<Product | null> {
+  try {
+    const { data } = await api.get<Product>(`/products/${id}`);
+    return data;
+  } catch {
+    return null;
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -10,7 +20,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const product = MOCK_PRODUCTS.find((p) => p.id === Number(id));
+  const product = await getProduct(id);
 
   if (!product) {
     return { title: "Product Not Found" };
@@ -71,7 +81,7 @@ export default async function ProductDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = MOCK_PRODUCTS.find((p) => p.id === Number(id));
+  const product = await getProduct(id);
 
   if (!product) {
     notFound();
