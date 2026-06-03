@@ -24,7 +24,7 @@ function SkeletonCard() {
 /** Grid of skeleton cards for loading state */
 export default function ProductSkeleton({ count = 12 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" aria-busy="true">
       {Array.from({ length: count }).map((_, i) => (
         <SkeletonCard key={i} />
       ))}

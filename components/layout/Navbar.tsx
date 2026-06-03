@@ -2,13 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import Image from "next/image";
+import DesktopNav from "./DesktopNav";
+import MobileMenu from "./MobileMenu";
 
 export default function Navbar() {
-  const { user, isAuthenticated, logout, isLoading } = useAuth();
-  const pathname = usePathname() || "";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
 
@@ -50,66 +47,7 @@ export default function Navbar() {
               </span>
             </Link>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-6">
-              <Link
-                href="/"
-                className={`transition-colors text-sm font-medium ${
-                  pathname === "/" ? "text-purple-400" : "text-slate-300 hover:text-white"
-                }`}
-              >
-                Home
-              </Link>
-              <Link
-                href="/products"
-                className={`transition-colors text-sm font-medium ${
-                  pathname.startsWith("/products") ? "text-purple-400" : "text-slate-300 hover:text-white"
-                }`}
-              >
-                Products
-              </Link>
-
-              {/* Auth Section */}
-              {isLoading ? (
-                <div className="w-20 h-8 rounded-lg bg-slate-700/50 animate-pulse" />
-              ) : isAuthenticated && user ? (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-white/10">
-                    <Image
-                      src={user.image}
-                      alt={user.firstName}
-                      width={24}
-                      height={24}
-                      className="w-6 h-6 rounded-full object-cover ring-1 ring-purple-400/50"
-                    />
-                    <span className="text-sm text-slate-200 font-medium">
-                      {user.firstName}
-                    </span>
-                  </div>
-                  <button
-                    onClick={logout}
-                    className="text-sm text-slate-400 hover:text-red-400 transition-colors font-medium cursor-pointer"
-                  >
-                    Logout
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <Link
-                    href="/login"
-                    className="text-sm text-slate-300 hover:text-white transition-colors font-medium"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="text-sm px-4 py-2 rounded-lg bg-linear-to-r from-purple-600 to-pink-600 text-white font-medium hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40"
-                  >
-                    Register
-                  </Link>
-                </div>
-              )}
-            </div>
+            <DesktopNav />
 
             {/* Mobile Menu Button */}
             <button
@@ -130,79 +68,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-white/10 bg-slate-900/95 backdrop-blur-xl">
-            <div className="px-4 py-4 space-y-3">
-              <Link
-                href="/"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block transition-colors py-2 font-medium ${
-                  pathname === "/" ? "text-purple-400" : "text-slate-300 hover:text-white"
-                }`}
-              >
-                Home
-              </Link>
-              <Link
-                href="/products"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block transition-colors py-2 font-medium ${
-                  pathname.startsWith("/products") ? "text-purple-400" : "text-slate-300 hover:text-white"
-                }`}
-              >
-                Products
-              </Link>
-
-              <div className="pt-3 border-t border-white/10">
-                {isAuthenticated && user ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Image
-                        src={user.image}
-                        alt={user.firstName}
-                        width={32}
-                        height={32}
-                        className="w-8 h-8 rounded-full object-cover ring-2 ring-purple-400/50"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-white">
-                          {user.firstName} {user.lastName}
-                        </p>
-                        <p className="text-xs text-slate-400">{user.email}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        logout();
-                        setMobileMenuOpen(false);
-                      }}
-                      className="w-full text-left text-sm text-red-400 hover:text-red-300 py-2 font-medium cursor-pointer"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Link
-                      href="/login"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block text-center py-2 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:border-white/20 transition-all font-medium"
-                    >
-                      Login
-                    </Link>
-                    <Link
-                      href="/register"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block text-center py-2 rounded-lg bg-linear-to-r from-purple-600 to-pink-600 text-white font-medium hover:from-purple-500 hover:to-pink-500 transition-all"
-                    >
-                      Register
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        <MobileMenu open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       </nav>
     </header>
   );

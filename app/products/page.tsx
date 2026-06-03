@@ -1,88 +1,54 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { useProducts, useSearchProducts, useCategories } from "@/hooks/useProducts";
+import { useState, useMemo } from "react";
+import { useSearchProducts, useCategories } from "@/hooks/useProducts";
+import { useInfiniteProducts } from "@/hooks/useInfiniteProducts";
 import { useDebounce } from "@/hooks/useDebounce";
 import ProductCard from "@/components/products/ProductCard";
 import ProductSkeleton from "@/components/products/ProductSkeleton";
 import SearchBar from "@/components/products/SearchBar";
 import CategoryFilter from "@/components/products/CategoryFilter";
-import type { Product } from "@/types";
 
 const PRODUCTS_PER_PAGE = 12;
 
 export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [loadedProducts, setLoadedProducts] = useState<Product[]>([]);
-  const [skip, setSkip] = useState(0);
-  const [hasInitialized, setHasInitialized] = useState(false);
-
   const debouncedSearch = useDebounce(searchQuery, 300);
+  const isSearching = debouncedSearch.trim().length > 0;
 
   const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
 
   const {
-    data: productsData,
-    isLoading: productsLoading,
-    isError: productsError,
-    refetch: refetchProducts,
-  } = useProducts(skip, PRODUCTS_PER_PAGE, selectedCategory || undefined);
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isInfiniteLoading,
+    isError,
+    refetch,
+  } = useInfiniteProducts(selectedCategory || undefined);
 
   const {
     data: searchData,
     isLoading: searchLoading,
   } = useSearchProducts(debouncedSearch);
 
-  const isSearching = debouncedSearch.trim().length > 0;
-
-  // Accumulate products when new data arrives or category changes.
-  // selectedCategory is in deps so the effect re-runs even when
-  // TanStack Query returns a cached (same-reference) result.
-  React.useEffect(() => {
-    if (productsData?.products && !isSearching) {
-      // Defer state updates to a microtask to avoid synchronous setState calls within the effect body
-      Promise.resolve().then(() => {
-        if (skip === 0) {
-          setLoadedProducts(productsData.products);
-        } else {
-          setLoadedProducts((prev) => {
-            const existingIds = new Set(prev.map((p) => p.id));
-            const newProducts = productsData.products.filter((p) => !existingIds.has(p.id));
-            return [...prev, ...newProducts];
-          });
-        }
-        setHasInitialized(true);
-      });
-    }
-  }, [productsData, skip, isSearching, selectedCategory]);
-
   const displayProducts = useMemo(() => {
-    if (isSearching) {
-      return searchData?.products || [];
-    }
-    return loadedProducts;
-  }, [isSearching, searchData, loadedProducts]);
+    if (isSearching) return searchData?.products || [];
+    return infiniteData?.pages.flatMap((p) => p.products) ?? [];
+  }, [isSearching, searchData, infiniteData]);
 
   const totalProducts = isSearching
     ? searchData?.total || 0
-    : productsData?.total || 0;
+    : infiniteData?.pages[0]?.total ?? 0;
 
-  const canLoadMore = !isSearching && loadedProducts.length < totalProducts;
-
-  const isInitialLoading = (!hasInitialized && productsLoading) || (isSearching && searchLoading);
-  const isLoadingMore = hasInitialized && productsLoading && skip > 0;
-
-  const handleLoadMore = () => {
-    const newSkip = skip + PRODUCTS_PER_PAGE;
-    setSkip(newSkip);
-  };
+  const isInitialLoading = isSearching
+    ? searchLoading
+    : isInfiniteLoading && !infiniteData;
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
-    setSkip(0);
-    setLoadedProducts([]);
-    setHasInitialized(false);
     setSearchQuery("");
   };
 
@@ -100,7 +66,7 @@ export default function ProductsPage() {
         <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
           Products Catalog
         </h1>
-        <p className="text-slate-400">
+        <p className="text-slate-400" aria-live="polite">
           {isSearching
             ? `Found ${totalProducts} result${totalProducts !== 1 ? "s" : ""} for "${debouncedSearch}"`
             : `Explore our collection of ${totalProducts}+ products`}
@@ -124,8 +90,8 @@ export default function ProductsPage() {
       </div>
 
       {/* Error State */}
-      {productsError && !isSearching && (
-        <div className="text-center py-16">
+      {isError && !isSearching && (
+        <div role="alert" className="text-center py-16">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
             <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -138,7 +104,7 @@ export default function ProductsPage() {
             Failed to load products. Please try again.
           </p>
           <button
-            onClick={() => refetchProducts()}
+            onClick={() => refetch()}
             className="px-6 py-2.5 rounded-lg bg-linear-to-r from-purple-600 to-pink-600 text-white font-medium hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-500/25 cursor-pointer"
           >
             Retry
@@ -147,20 +113,24 @@ export default function ProductsPage() {
       )}
 
       {/* Loading State */}
-      {isInitialLoading && <ProductSkeleton count={PRODUCTS_PER_PAGE} />}
+      {isInitialLoading && (
+        <div aria-busy="true">
+          <ProductSkeleton count={PRODUCTS_PER_PAGE} />
+        </div>
+      )}
 
       {/* Product Grid */}
-      {!isInitialLoading && !productsError && (
+      {!isInitialLoading && !isError && (
         <>
           {displayProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" aria-live="polite">
               {displayProducts.map((product, index) => (
                 <div
                   key={product.id}
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${(index % PRODUCTS_PER_PAGE) * 0.05}s`, animationFillMode: "forwards" }}
                 >
-                  <ProductCard product={product} />
+                  <ProductCard product={product} priority={index < 4} />
                 </div>
               ))}
             </div>
@@ -184,14 +154,14 @@ export default function ProductsPage() {
           )}
 
           {/* Load More Button */}
-          {canLoadMore && (
+          {!isSearching && hasNextPage && (
             <div className="flex justify-center mt-10">
               <button
-                onClick={handleLoadMore}
-                disabled={isLoadingMore}
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
                 className="group px-8 py-3 rounded-xl bg-slate-800/80 border border-white/10 text-white font-medium hover:border-purple-500/30 hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
               >
-                {isLoadingMore ? (
+                {isFetchingNextPage ? (
                   <>
                     <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -212,9 +182,9 @@ export default function ProductsPage() {
           )}
 
           {/* Product Count */}
-          {!isSearching && loadedProducts.length > 0 && (
+          {!isSearching && !isInitialLoading && infiniteData && (
             <p className="text-center text-sm text-slate-500 mt-6">
-              Showing {loadedProducts.length} of {totalProducts} products
+              Showing {infiniteData.pages.reduce((acc, p) => acc + p.products.length, 0)} of {infiniteData.pages[0]?.total ?? 0} products
             </p>
           )}
         </>

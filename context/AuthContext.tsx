@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await fetch("/api/auth", { method: "DELETE" });
     } catch {
-      // Proceed with local logout cleanup even if cookie clearing fails
+      console.warn("Server-side cookie clearing failed, proceeding with local cleanup");
     }
     
     // Clear access token from in-memory module closure

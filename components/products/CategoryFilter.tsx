@@ -22,7 +22,7 @@ export default function CategoryFilter({
 
   if (isLoading) {
     return (
-      <div className="flex gap-2 overflow-hidden">
+      <div className="flex gap-2 overflow-hidden" aria-busy="true">
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}

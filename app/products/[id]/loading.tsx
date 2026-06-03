@@ -1,6 +1,6 @@
 export default function ProductDetailLoading() {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full animate-fade-in">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full animate-fade-in" aria-busy="true">
       {/* Back button skeleton */}
       <div className="h-5 w-32 bg-slate-800/50 rounded-lg animate-pulse mb-8" />
 
