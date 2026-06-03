@@ -2,25 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import type { LoginCredentials } from "@/types";
-
-// Mock useAuth since AuthContext is not established in this commit
-const useAuth = () => {
-  const router = useRouter();
-  return {
-    login: async (credentials: LoginCredentials) => {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      if (credentials.username === "emilys" && credentials.password === "emilyspass") {
-        router.push("/products");
-      } else {
-        throw new Error("Invalid username or password");
-      }
-    },
-    isLoading: false,
-  };
-};
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const { login, isLoading: authLoading } = useAuth();

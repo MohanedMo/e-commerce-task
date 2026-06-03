@@ -2,21 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import type { RegisterData } from "@/types";
-
-// Mock useAuth since AuthContext is not established in this commit
-const useAuth = () => {
-  const router = useRouter();
-  return {
-    register: async (data: RegisterData) => {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      router.push("/products");
-    },
-    isLoading: false,
-  };
-};
+import { useAuth } from "@/context/AuthContext";
 
 export default function RegisterPage() {
   const { register, isLoading: authLoading } = useAuth();

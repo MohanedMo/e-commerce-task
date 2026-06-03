@@ -3,19 +3,12 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import Image from "next/image";
 
 export default function Navbar() {
   const pathname = usePathname() || "";
-  // Mock data for Phase 2 UI presentation
-  const isLoading = false;
-  const isAuthenticated = true;
-  const user = {
-    firstName: "Emily",
-    lastName: "Smith",
-    email: "emily.smith@example.com",
-    image: "https://dummyjson.com/icon/emilys/128",
-  };
-  const logout = () => console.log("Mock logout");
+  const { user, isAuthenticated, logout, isLoading } = useAuth();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
@@ -62,9 +55,11 @@ export default function Navbar() {
               ) : isAuthenticated && user ? (
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-white/10">
-                    <img
+                    <Image
                       src={user.image}
                       alt={user.firstName}
+                      width={24}
+                      height={24}
                       className="w-6 h-6 rounded-full object-cover ring-1 ring-purple-400/50"
                     />
                     <span className="text-sm text-slate-200 font-medium">
