@@ -56,7 +56,7 @@ npm run build
 ---
 
 ## 🔗 Live Demo
-- **Live Demo**: [https://shopvibe-ecommerce.vercel.app](https://shopvibe-ecommerce.vercel.app)
+- **Live Demo**: [https://e-commerce-task-psi-seven.vercel.app/](https://e-commerce-task-psi-seven.vercel.app/)
 
 ---
 
